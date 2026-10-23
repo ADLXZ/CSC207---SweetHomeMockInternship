@@ -2002,12 +2002,72 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     }
     return strokeWidth;
   }
+
+  /**
+   * Prints viewable levels in home order and restores the selected level.
+   */
+  public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+    if (pageIndex < 0) {
+      return NO_SUCH_PAGE;
+    }
+
+    if (this.home.getLevels().isEmpty()) {
+      return printSelectedLevel(g, pageFormat, pageIndex);
+    }
+
+    Level previousLevel = this.home.getSelectedLevel();
+    try {
+      int remainingPage = pageIndex;
+
+      for (Level level : this.home.getLevels()) {
+        if (!level.isViewable()) {
+          continue;
+        }
+
+        this.home.setSelectedLevel(level);
+        Rectangle2D bounds = getItemsBounds(g, getPaintedItems());
+        if (bounds == null) {
+          continue;
+        }
+
+        int levelPageCount = 1;
+        if (this.home.getPrint() != null
+                && this.home.getPrint().getPlanScale() != null) {
+          float scale = this.home.getPrint().getPlanScale().floatValue()
+                  * LengthUnit.centimeterToInch(72);
+
+          int columns = (int)(bounds.getWidth() * scale
+                  / pageFormat.getImageableWidth());
+          if (bounds.getWidth() * scale != pageFormat.getImageableWidth()) {
+            columns++;
+          }
+
+          int rows = (int)(bounds.getHeight() * scale
+                  / pageFormat.getImageableHeight());
+          if (bounds.getHeight() * scale != pageFormat.getImageableHeight()) {
+            rows++;
+          }
+
+          levelPageCount = columns * rows;
+        }
+
+        if (remainingPage < levelPageCount) {
+          return printSelectedLevel(g, pageFormat, remainingPage);
+        }
+        remainingPage -= levelPageCount;
+      }
+
+      return NO_SUCH_PAGE;
+    } finally {
+      this.home.setSelectedLevel(previousLevel);
+    }
+  }
   
   /**
    * Prints this component plan at the scale given in the home print attributes or at a scale 
    * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
    */
-  public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+  private int printSelectedLevel(Graphics g, PageFormat pageFormat, int pageIndex) {
     List<Selectable> printedItems = getPaintedItems(); 
     Rectangle2D printedItemBounds = getItemsBounds(g, printedItems);
     if (printedItemBounds != null) {
